@@ -1,0 +1,260 @@
+#!/bin/bash
+
+# This portion of the plugin looks for the "cosign" executable in PATH.
+# If it cannot locate the executable, it downloads it from GitHub, and
+# authenticates it.
+#
+# The script then writes the executable's file path to stdout.
+#
+# The following environment variables are set and (theoretically)
+# available to subsequent buildkite hooks:
+#
+# - COSIGN_VERSION     - The selected cosign version
+# - COSIGN_EXE_PATH    - The cosign executable's file path
+# - COSIGN_EXE_IN_TEMP - Set to "true" if the cosign executable is stored
+#                       in a temporary directory
+#
+# Required executables / bash built-ins:
+#
+# - exit
+# - echo
+# - export
+# - if / [[ ]]
+# - buildkite-agent
+# - uname
+# - curl
+# - sha256sum || openssl
+# - mktemp
+# - which
+# - mkdir
+
+readonly COSIGN_DEFAULT_VERSION="1.13.0"
+export COSIGN_VERSION="${BUILDKITE_PLUGIN_COSIGN_VERSION:-$COSIGN_DEFAULT_VERSION}"
+REMOVE_FILE_ON_ERR=""
+
+die() {
+  [[ -f "${REMOVE_FILE_ON_ERR}" ]] && rm "${REMOVE_FILE_ON_ERR}"
+  display_error "$2"
+  exit "$1"
+}
+
+display_error() {
+  message="$1"
+  echo "🚨 $message" >&2
+  buildkite-agent annotate --style error "$message<br />" --context cosign-install
+}
+
+# os_cpu_string retrieves information from the runtime
+# environment and uses it to build the OS and CPU string that
+# appears in each cosign release's file name.
+#
+os_cpu_string() {
+  local UNAME_INFO=""
+  if ! UNAME_INFO="$(uname -a)"; then
+    die 1 "failed to run uname"
+  fi
+
+  local RUNTIME_OS=""
+  local RUNTIME_CPU=""
+
+  case "${UNAME_INFO}" in
+    *Darwin*)
+      RUNTIME_OS=darwin
+      ;;
+    *Linux*)
+      RUNTIME_OS=linux
+      ;;
+    *)
+      die 2 "failed to determine current computer's operating system"
+      ;;
+  esac
+
+  case "${UNAME_INFO}" in
+    *amd64*)
+      RUNTIME_CPU=amd64
+      ;;
+    *x86_64*)
+      RUNTIME_CPU=amd64
+      ;;
+    *arm64*)
+      RUNTIME_CPU=arm64
+      ;;
+    *aarch64*)
+      RUNTIME_CPU=arm64
+      ;;
+    *)
+      die 3 "failed to determine current computer's cpu"
+      ;;
+  esac
+
+  echo "${RUNTIME_OS}-${RUNTIME_CPU}"
+
+  return 0
+}
+
+# cosign_url builds the URL for the specified version
+# of cosign and writes it to stdout.
+#
+# For example:
+# https://github.com/aquasecurity/cosign/releases/download/v1.13.0/cosign_1.13.0_linux-64bit
+cosign_url() {
+  local VERSION="${1}"
+  [[ -z "${VERSION}" ]] \
+    && die 10 "cosign_tar_url: version argument is missing or empty"
+
+  local OS_CPU="${2}"
+  [[ -z "${OS_CPU}" ]] \
+    && die 11 "cosign_tar_url: os-cpu string argument is missing or empty"
+
+  local BASE_URL="https://github.com/sigstore/cosign/releases/download"
+  local URL="${BASE_URL}/v${VERSION}/cosign-${OS_CPU}"
+
+  echo "${URL}"
+  return 0
+}
+
+# cosign_hashes_url builds the hashes URL for the specified version
+# of cosign and writes it to stdout.
+#
+# For example:
+# https://github.com/sigstore/cosign/releases/download/v1.13.0/cosign_checksums.txt
+cosign_hashes_url() {
+  local VERSION="${1}"
+  [[ -z "${VERSION}" ]] \
+    && die 20 "cosign_hashes_url: version argument is missing or empty"
+
+  local BASE_URL="https://github.com/sigstore/cosign/releases/download"
+  local URL="${BASE_URL}/v${VERSION}/cosign_checksums.txt"
+
+  echo "${URL}"
+  return 0
+}
+
+# sha2_256_hash_file hashes the specified file and compares the resulting
+# hash with the provided SHA2-256 hash string, returning status code zero
+# on success.
+sha2_256_hash_file() {
+  local FILE="${1}"
+  [[ -z "${FILE}" ]] \
+    && die 30 "sha2_256_hash_file: file argument is missing or empty"
+
+  [[ ! -f "${FILE}" ]] \
+    && die 31 "sha2_256_hash_file: target file ('${FILE}') does not exist"
+
+  local HASH="${2}"
+  [[ -z "${HASH}" ]] \
+    && die 32 "sha2_256_hash_file: hash argument is missing or empty"
+
+  local RESULT=""
+  if which sha256sum > /dev/null; then
+    # $ RESULT="$(sha256sum /proc/self/cmdline)"
+    # $ echo "'${RESULT}'"
+    # '31d14183b4...  /proc/self/cmdline'
+    # $ RESULT="${RESULT%% *}"
+    # $ echo "'${RESULT}'"
+    # '31d14183b4...'
+    RESULT="$(sha256sum "${FILE}")"
+    RESULT="${RESULT%% *}"
+  elif which openssl > /dev/null; then
+    # $ RESULT="$(openssl sha256 /proc/self/cmdline)"
+    # $ echo "'${RESULT}'"
+    # 'SHA256(/proc/self/cmdline)= fbc0b267807d5d...'
+    # $ RESULT="${RESULT##* }"
+    # $ echo "'${RESULT}'"
+    # 'fbc0b267807d5d...'
+    RESULT="$(openssl sha256 "${FILE}")"
+    RESULT="${RESULT##* }"
+  else
+    die 33 "sha2_256_hash_file: no sha2-256 tool available"
+  fi
+
+  [[ -z "${RESULT}" ]] \
+    && die 34 "sha2_256_hash_file: hash result is empty"
+
+  [[ "${HASH}" == "${RESULT}" ]] && return 0
+
+  die 35 "sha2_256_hash_file: hash mismatch: expected: '${HASH}' - got: '${RESULT}'"
+}
+
+# download_cosign downloads the specified version of cosign from GitHub and
+# authenticates it using the hashes file stored with the GitHub release
+# (yes, this is not ideal). The function saves the executable in a temporary
+# directory. The cosign executable's file path is written to stdout.
+download_cosign() {
+  local VERSION="${1}"
+  [[ -z "${VERSION}" ]] \
+    && die 40 "download_cosign: cosign version not specified"
+
+  local COSIGN_OS_CPU=""
+  COSIGN_OS_CPU="$(os_cpu_string)" || return "${?}"
+
+  local HASHES_URL=""
+  HASHES_URL="$(cosign_hashes_url "${VERSION}")" || return "${?}"
+
+  local BIN_URL=""
+  BIN_URL="$(cosign_url "${VERSION}" "${COSIGN_OS_CPU}")" || return "${?}"
+
+  local HASHES=""
+  HASHES="$(curl --fail -L "${HASHES_URL}")" \
+    || die 41 "download_cosign: failed to download hashes"
+
+  [[ -z "${HASHES}" ]] \
+    && die 42 "download_cosign: downloaded hashes file is empty"
+
+  local BIN_NAME="${BIN_URL##*/}"
+
+  local HASH=""
+  local CURRENT_VALUE=""
+  local LAST_VALUE=""
+  for CURRENT_VALUE in ${HASHES}; do
+    # Order of lines will be:
+    #   <hash-string>
+    #   <filename>
+    if [[ "${CURRENT_VALUE}" == "${BIN_NAME}" ]] ; then
+      HASH="${LAST_VALUE}"
+      break
+    fi
+    LAST_VALUE="${CURRENT_VALUE}"
+  done
+
+  [[ -z "${HASH}" ]] \
+    && die 43 "download_cosign: failed to find matching hash for '${BIN_NAME}'"
+
+  local TEMP_DIR=""
+  TEMP_DIR="$(mktemp -d)" || die 44 "download_cosign: failed to create temp dir"
+
+  local FINAL_BIN="${TEMP_DIR}/cosign"
+  REMOVE_FILE_ON_ERR="${FINAL_BIN}"
+  curl --fail -L -o "${FINAL_BIN}" "${BIN_URL}" \
+    || die 45 "download_cosign: failed to download cosign to '${FINAL_BIN}'"
+
+  sha2_256_hash_file "${FINAL_BIN}" "${HASH}" || return "${?}"
+
+  local EXE="${FINAL_BIN}"
+  [[ -f "${EXE}" ]] \
+    || die 47 "download_cosign: '${BIN_NAME}' does not contain a file named 'cosign'"
+  
+  chmod +x "${EXE}" || die 48 "download_cosign: failed to make '${EXE}' executable"
+
+  echo "${EXE}"
+
+  return 0
+}
+
+WHICH_COSIGN_EXE=""
+WHICH_COSIGN_EXE="$(which cosign)"
+# shellcheck disable=SC2181
+if [[ "$?" -eq 0 ]] && [[ -f "${WHICH_COSIGN_EXE}" ]]; then
+  echo "${WHICH_COSIGN_EXE}"
+  export COSIGN_EXE_PATH="${WHICH_COSIGN_EXE}"
+  exit 0
+fi
+
+FINAL_COSIGN_EXE=""
+FINAL_COSIGN_EXE="$(download_cosign "${COSIGN_VERSION}")" || exit $?
+
+export COSIGN_EXE_IN_TEMP="true"
+
+echo "${FINAL_COSIGN_EXE}"
+
+export COSIGN_EXE_PATH="${FINAL_COSIGN_EXE}"

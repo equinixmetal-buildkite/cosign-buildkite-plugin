@@ -1,0 +1,41 @@
+name: Cosign
+description: Cosign plugin for BuildKite
+author: Hari
+requirements:
+  - bash
+  - docker
+  - uname
+  - curl
+  - mktemp
+  - tar
+configuration:
+  properties:
+    sign:
+      type: object
+      properties:
+        image: 
+          type: string
+          description: "The container image tag to sign"
+        keyless: 
+          type: boolean
+          description: "Use keyless signing"
+          default: true
+        keyless_config:
+          type: object
+          properties:
+            fulcio_url:
+              type: string
+              description: "Fulcio URL"
+              default: "https://fulcio.sigstore.dev"
+            rekor_url:
+              type: string
+              description: "Rekor URL"
+              default: "https://rekor.sigstore.dev"
+            oidc_provider:
+              type: string
+              description: "OIDC provider"
+              default: github
+    cosign-version:
+      type: string
+      description: "The version of cosign to use"
+  additionalProperties: false

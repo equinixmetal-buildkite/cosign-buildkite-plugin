@@ -1,0 +1,5 @@
+#!/bin/bash
+
+[[ "${COSIGN_EXE_IN_TEMP}" != "true" ]] && exit 0
+
+[[ -f "${COSIGN_EXE_PATH}" ]] && rm "${COSIGN_EXE_PATH}"

@@ -19,7 +19,7 @@ step with the default plugin configuration parameters:
 steps:
   - command: ls
     plugins:
-      - equinixmetal-buildkite/cosign#v1.16.2:
+      - equinixmetal-buildkite/cosign#v0.1.0:
           sign:
             image: "ghcr.io/my-project/my-image:latest"
             keyless: true

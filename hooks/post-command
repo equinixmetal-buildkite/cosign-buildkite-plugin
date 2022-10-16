@@ -49,10 +49,10 @@ is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-true}
 ################
 
 cosign_keyless() {
-    local fulcio_url=${BUILDKITE_PLUGIN_COSIGN_FULCIO_URL:-"https://fulcio.sigstore.dev"}
-    local rekor_url=${BUILDKITE_PLUGIN_COSIGN_REKOR_URL:-"https://rekor.sigstore.dev"}
-    local oidc_issuer=${BUILDKITE_PLUGIN_COSIGN_OIDC_ISSUER:-"https://oauth2.sigstore.dev/auth"}
-    local oidc_provider=${BUILDKITE_PLUGIN_COSIGN_OIDC_PROVIDER:-"github"}
+    local fulcio_url=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_FULCIO_URL:-"https://fulcio.sigstore.dev"}
+    local rekor_url=${BUILDKITE_PLUGIN_COSIG_KEYLESS_CONFIGN_REKOR_URL:-"https://rekor.sigstore.dev"}
+    local oidc_issuer=${BUILDKITE_PLUGIN_COSIG_KEYLESS_CONFIGN_OIDC_ISSUER:-"https://oauth2.sigstore.dev/auth"}
+    local oidc_provider=${BUILDKITE_PLUGIN_COSIG_KEYLESS_CONFIGN_OIDC_PROVIDER:-"github"}
 
     rm out.sig || true
 
@@ -81,9 +81,12 @@ EOF
 }
 
 cosign_keyed() {
-    local key=${BUILDKITE_PLUGIN_COSIGN_KEY}
+    local key=${BUILDKITE_PLUGIN_COSIGN_KEYED_CONFIG_KEY:-}
     if [[ -z "${key}" ]]; then
-        fail_with_message "cosign" "Key not found"
+        fail_with_message "cosign" "Key not specified"
+    fi
+    if [[ ! -f "${key}" ]]; then
+        fail_with_message "cosign" "Key file not found in path ${key}"
     fi
 
     rm out.sig || true

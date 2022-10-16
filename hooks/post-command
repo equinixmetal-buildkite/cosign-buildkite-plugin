@@ -72,19 +72,19 @@ cosign_keyless() {
         fail_with_message "cosign" "Failed to sign image"
     fi
 
-    signature=$(cat out.sig)
+    local signature=$(cat out.sig)
 
     display_success "cosign" "Successfully signed image."
     cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
 ### Signed image
-```
+\`\`\`
 $image
-```
+\`\`\`
 
 ### Signature
-```
+\`\`\`
 $signature
-```
+\`\`\`
 EOF
 
     rm out.sig || true
@@ -114,19 +114,19 @@ cosign_keyed() {
         fail_with_message "cosign" "Failed to sign image"
     fi
 
-    signature=$(cat out.sig)
+    local signature=$(cat out.sig)
 
     display_success "cosign" "Successfully signed image."
     cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
 ### Signed image
-```
+\`\`\`
 $image
-```
+\`\`\`
 
 ### Signature
-```
+\`\`\`
 $signature
-```
+\`\`\`
 EOF
 
     rm out.sig || true

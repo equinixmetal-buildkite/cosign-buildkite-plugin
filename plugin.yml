@@ -15,31 +15,30 @@ configuration:
       type: boolean
       description: "Use keyless signing"
       default: true
-    keyless_config:
+    keyless-config:
       type: object
       properties:
-        fulcio_url:
+        fulcio-url:
           type: string
           description: "Fulcio URL"
           default: "https://fulcio.sigstore.dev"
-        rekor_url:
+        rekor-url:
           type: string
           description: "Rekor URL"
           default: "https://rekor.sigstore.dev"
-        oidc_issuer:
+        oidc-issuer:
           type: string
           description: "OIDC issuer"
-        oidc_provider:
+        oidc-provider:
           type: string
           description: "OIDC provider"
           default: "github"
-    keyed_config:
+    keyed-config:
       type: object
       properties:
         key:
           type: string
           description: "Signing key path"
-
     cosign-version:
       type: string
       description: "The version of cosign to use"

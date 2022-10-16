@@ -107,6 +107,10 @@ cosign_keyed() {
         fail_with_message "cosign" "Failed to sign image"
     fi
 
+    echo "--- DEBUG: BEGIN signature"
+    cat out.sig
+    echo "--- DEBUG: END signature"
+
     display_success "cosign" "Successfully signed image."
     cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
 ### Signature

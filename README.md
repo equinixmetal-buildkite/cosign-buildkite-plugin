@@ -20,12 +20,11 @@ steps:
   - command: ls
     plugins:
       - equinixmetal-buildkite/cosign#v0.1.0:
-          sign:
-            image: "ghcr.io/my-project/my-image:latest"
-            keyless: true
-            keyless_config:
-              fulcio_url: "https://fulcio.sigstore.dev"
-              rekor_url: "https://rekor.sigstore.dev" 
+          image: "ghcr.io/my-project/my-image:latest"
+          keyless: true
+          keyless_config:
+            fulcio_url: "https://fulcio.sigstore.dev"
+            rekor_url: "https://rekor.sigstore.dev" 
 ```
 
 This will use keyless signatures and upload the signature to the same repository
@@ -34,9 +33,24 @@ plugin will use the default values presented.
 
 ## Configuration
 
-### `sign` (Optional, object)
+### `image` (Required, string)
 
-Contains the configuration for doing a container signature.
+References the image to sign
+
+### `keyless` (Optional, boolean)
+
+If set to `true`, the plugin will use keyless signatures. If set to `false`, the
+plugin will use a keypair. If not specified, the plugin will default to `true`.
+
+### `keyless_config` (Optional, object)
+
+If `keyless` is set to `true`, the plugin will use the following configuration
+parameters to sign the image:
+
+- `fulcio_url` (Optional, string): The URL of the Fulcio server to use. If not
+  specified, the plugin will default to `https://fulcio.sigstore.dev`.
+- `rekor_url` (Optional, string): The URL of the Rekor server to use. If not
+  specified, the plugin will default to `https://rekor.sigstore.dev`.
 
 ### `cosign-version` (Optional, string)
 

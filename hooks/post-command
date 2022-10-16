@@ -1,0 +1,116 @@
+#!/bin/bash
+
+# This plugin hook executes the actual cosign operations.
+
+# Setup
+#######
+
+# I would prefer to just execute the path pointed-to by this environment
+# variable - but that is incompatible with the testing framework. As a
+# result, we need to modify PATH to include the directory containing
+# the trivy executable.
+export PATH="${PATH}:${COSIGN_EXE_PATH%/*}"
+
+# Helper functions
+##################
+
+fail_with_message() {
+  display_error "$1" "$2"
+  exit 1
+}
+
+display_error() {
+  ctx="$1"
+  message="$2"
+  echo "🚨 $message" >&2
+  buildkite-agent annotate --style error "$message<br />" --context "$ctx"
+}
+
+display_success() {
+  ctx="$1"
+  message="$2"
+  echo "$message"
+  buildkite-agent annotate --style success "$message<br />" --context "$ctx"
+}
+
+
+# Parameters
+############
+
+# This is a required parameter
+image=${BUILDKITE_PLUGIN_COSIGN_IMAGE}
+if [[ -z "${image}" ]]; then
+    fail_with_message "cosign" "No image specified"
+fi
+
+is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-true}
+
+# Hook functions
+################
+
+cosign_keyless() {
+    local fulcio_url=${BUILDKITE_PLUGIN_COSIGN_FULCIO_URL:-"https://fulcio.sigstore.dev"}
+    local rekor_url=${BUILDKITE_PLUGIN_COSIGN_REKOR_URL:-"https://rekor.sigstore.dev"}
+    local oidc_issuer=${BUILDKITE_PLUGIN_COSIGN_OIDC_ISSUER:-"https://oauth2.sigstore.dev/auth"}
+    local oidc_provider=${BUILDKITE_PLUGIN_COSIGN_OIDC_PROVIDER:-"github"}
+
+    rm out.sig || true
+
+    COSIGN EXPERIMENTAL=1 cosign sign \
+        --fulcio-url="${fulcio_url}" \
+        --rekor-url="${rekor_url}" \
+        --oidc-issuer="${oidc_issuer}" \
+        --oidc-provider="${oidc_provider}" \
+        --output-signature=out.sig \
+        "${image}"
+    
+    status=$?
+    if [[ $status -ne 0 ]]; then
+        fail_with_message "cosign" "Failed to sign image"
+    fi
+
+    display_success "cosign" "Successfully signed image."
+    cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
+# Signature
+```
+$(cat out.sig)
+```
+EOF
+
+    rm out.sig || true
+}
+
+cosign_keyed() {
+    local key=${BUILDKITE_PLUGIN_COSIGN_KEY}
+    if [[ -z "${key}" ]]; then
+        fail_with_message "cosign" "Key not found"
+    fi
+
+    rm out.sig || true
+
+    cosign sign \
+        --key="${key}" \
+        --output-signature=out.sig \
+        "${image}"
+
+    status=$?
+    if [[ $status -ne 0 ]]; then
+        fail_with_message "cosign" "Failed to sign image"
+    fi
+
+    display_success "cosign" "Successfully signed image."
+    cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
+# Signature
+```
+$(cat out.sig)
+```
+EOF
+
+    rm out.sig || true
+}
+
+if [[ "${is_keyless}" == "true" ]]; then
+    cosign_keyless
+else
+    cosign_keyed
+fi

@@ -3,11 +3,9 @@ description: Cosign plugin for BuildKite
 author: Hari
 requirements:
   - bash
-  - docker
   - uname
   - curl
   - mktemp
-  - tar
 configuration:
   properties:
     image: 
@@ -28,10 +26,20 @@ configuration:
           type: string
           description: "Rekor URL"
           default: "https://rekor.sigstore.dev"
+        oidc_issuer:
+          type: string
+          description: "OIDC issuer"
         oidc_provider:
           type: string
           description: "OIDC provider"
-          default: github
+          default: "github"
+    keyed_config:
+      type: object
+      properties:
+        key:
+          type: string
+          description: "Signing key path"
+
     cosign-version:
       type: string
       description: "The version of cosign to use"

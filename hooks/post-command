@@ -109,6 +109,7 @@ cosign_keyed() {
 
     echo "--- DEBUG: BEGIN signature"
     cat out.sig
+    echo ""
     echo "--- DEBUG: END signature"
 
     display_success "cosign" "Successfully signed image."
@@ -116,6 +117,7 @@ cosign_keyed() {
 ### Signature
 ```
 $(cat out.sig)
+$(echo "")
 ```
 EOF
 

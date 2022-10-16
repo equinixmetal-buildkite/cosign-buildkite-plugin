@@ -109,7 +109,7 @@ cosign_keyed() {
 
     display_success "cosign" "Successfully signed image."
     cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
-# Signature
+### Signature
 ```
 $(cat out.sig)
 ```

@@ -8,7 +8,7 @@
 # I would prefer to just execute the path pointed-to by this environment
 # variable - but that is incompatible with the testing framework. As a
 # result, we need to modify PATH to include the directory containing
-# the trivy executable.
+# the cosign executable.
 export PATH="${PATH}:${COSIGN_EXE_PATH%/*}"
 
 # Helper functions

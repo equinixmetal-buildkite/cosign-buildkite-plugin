@@ -58,7 +58,7 @@ cosign_keyless() {
 
     rm out.sig || true
 
-    COSIGN EXPERIMENTAL=1 cosign sign \
+    cosign EXPERIMENTAL=1 cosign sign \
         -y \
         --fulcio-url="${fulcio_url}" \
         --rekor-url="${rekor_url}" \

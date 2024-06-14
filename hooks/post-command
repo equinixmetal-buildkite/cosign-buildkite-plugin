@@ -33,80 +33,134 @@ display_success() {
   buildkite-agent annotate --style success "$message<br />" --context "$ctx"
 }
 
+# if the supplied image reference does not contain a digest,
+# try getting the local image digest to use it instead, and
+# if that fails, warn then continue using the supplied image reference
+use_image_digest() {
+    if [[ $image != *"@sha256:"* ]]; then
+        echo "--- :docker: Getting the local image digest for ${image}"
 
-# Parameters
-############
+        local digest
+        digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${image}")
 
-# This is a required parameter
+        status=$?
+        if [[ $status -ne 0 ]]; then
+            display_error "docker inspect" "Failed to get the local image digest, will continue using supplied image reference ${image}"
+        else
+            display_success "docker inspect" "Will continue using ${digest}"
+            image="${digest}"
+        fi
+    fi
+}
+
+# Common parameters
+###################
+
+# image is a required parameter
 image=${BUILDKITE_PLUGIN_COSIGN_IMAGE}
 if [[ -z "${image}" ]]; then
-    fail_with_message "cosign" "No image specified"
+    fail_with_message "cosign" "Image not specified"
 fi
+use_image_digest
+
+# flags for the cosign sign command
+sign_flags=("-y" "--output-signature" "out.sig")
 
 is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-true}
 
 # Hook functions
 ################
 
-cosign_keyless() {
-    local fulcio_url=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_FULCIO_URL:-"https://fulcio.sigstore.dev"}
-    local rekor_url=${BUILDKITE_PLUGIN_COSIG_KEYLESS_CONFIGN_REKOR_URL:-"https://rekor.sigstore.dev"}
-    local oidc_issuer=${BUILDKITE_PLUGIN_COSIG_KEYLESS_CONFIGN_OIDC_ISSUER:-"https://oauth2.sigstore.dev/auth"}
-    local oidc_provider=${BUILDKITE_PLUGIN_COSIG_KEYLESS_CONFIGN_OIDC_PROVIDER:-"buildkite-agent"}
-    
-    echo "--- :key: Cosign keyless signing"
+# if provided, initialise cosign with a custom TUF configuration
+cosign_init() {
+    echo "--- :key: Init cosign"
 
-    rm out.sig || true
+    # flags for the cosign initialize command
+    init_flags=()
 
-    COSIGN_EXPERIMENTAL=1 cosign sign \
-        -y \
-        --fulcio-url="${fulcio_url}" \
-        --rekor-url="${rekor_url}" \
-        --oidc-issuer="${oidc_issuer}" \
-        --oidc-provider="${oidc_provider}" \
-        --output-signature=out.sig \
-        "${image}"
-
-    status=$?
-    if [[ $status -ne 0 ]]; then
-        fail_with_message "cosign" "Failed to sign image"
+    if [[ "${is_keyless}" == true ]]; then
+        local tuf_mirror_url=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_TUF_MIRROR_URL}
+        local tuf_root_url=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_TUF_ROOT_URL}
+    else
+        local tuf_mirror_url=${BUILDKITE_PLUGIN_COSIGN_KEYED_CONFIG_TUF_MIRROR_URL}
+        local tuf_root_url=${BUILDKITE_PLUGIN_COSIGN_KEYED_CONFIG_TUF_ROOT_URL}
     fi
 
-    local signature=$(cat out.sig)
+    if [[ -n "${tuf_mirror_url}" ]]; then
+        init_flags+=("--mirror" "${tuf_mirror_url}")
+    fi
 
-    display_success "cosign" "Successfully signed image."
-    cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
-### Signed image
-\`\`\`
-$image
-\`\`\`
+    if [[ -n "${tuf_root_url}" ]]; then
+        init_flags+=("--root" "${tuf_root_url}")
+    fi
 
-### Signature
-\`\`\`
-$signature
-\`\`\`
-EOF
+    if [ ${#init_flags[@]} -gt 0 ]; then
+        rm -rf ~/.sigstore
 
-    rm out.sig || true
+        cosign initialize "${init_flags[@]}"
+
+        status=$?
+        if [[ $status -ne 0 ]]; then
+            fail_with_message "cosign" "Failed to initialise"
+        fi
+        display_success "cosign" "Successfully initialised"
+    else
+        display_success "cosign" "Initialisation not required, skipping"
+    fi
 }
 
-cosign_keyed() {
-    echo "--- :key: Cosign keyed signing"
+setup_keyless() {
+    echo "--- :key: Setup cosign keyless signing"
+
+    local rekor_url=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_REKOR_URL}
+    if [[ -n "${rekor_url}" ]]; then
+        sign_flags+=("--rekor-url" "${rekor_url}")
+    fi
+
+    local fulcio_url=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_FULCIO_URL}
+    if [[ -n "${fulcio_url}" ]]; then
+        sign_flags+=("--fulcio-url" "${fulcio_url}")
+    fi
+
+    local oidc_issuer=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_OIDC_ISSUER}
+    if [[ -n "${oidc_issuer}" ]]; then
+        sign_flags+=("--oidc-issuer" "${oidc_issuer}")
+    fi
+
+    local oidc_provider=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_OIDC_PROVIDER:-"buildkite-agent"}
+    if [[ -n "${oidc_provider}" ]]; then
+        sign_flags+=("--oidc-provider" "${oidc_provider}")
+    fi
+}
+
+setup_keyed() {
+    echo "--- :key: Setup cosign keyed signing"
+
+    local rekor_url=${BUILDKITE_PLUGIN_COSIGN_KEYED_CONFIG_REKOR_URL}
+    if [[ -n "${rekor_url}" ]]; then
+        sign_flags+=("--rekor-url" "${rekor_url}")
+    fi
 
     local key=${BUILDKITE_PLUGIN_COSIGN_KEYED_CONFIG_KEY:-}
     if [[ -z "${key}" ]]; then
         fail_with_message "cosign" "Key not specified"
     fi
+
     if [[ ! -f "${key}" ]]; then
         fail_with_message "cosign" "Key file not found in path ${key}"
     fi
 
-    rm out.sig || true
+    sign_flags+=("--key" "${key}")
+}
+
+# sign the image
+cosign_sign() {
+    echo "--- :key: Signing image with cosign"
+
+    rm -f out.sig
 
     cosign sign \
-        -y \
-        --key="${key}" \
-        --output-signature=out.sig \
+        "${sign_flags[@]}" \
         "${image}"
 
     status=$?
@@ -114,9 +168,10 @@ cosign_keyed() {
         fail_with_message "cosign" "Failed to sign image"
     fi
 
-    local signature=$(cat out.sig)
+    local signature
+    signature=$(cat out.sig)
 
-    display_success "cosign" "Successfully signed image."
+    display_success "cosign" "Successfully signed image"
     cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
 ### Signed image
 \`\`\`
@@ -129,11 +184,18 @@ $signature
 \`\`\`
 EOF
 
-    rm out.sig || true
+    rm -f out.sig
 }
 
-if [[ "${is_keyless}" == "true" ]]; then
-    cosign_keyless
+# Main
+#######
+
+cosign_init
+
+if [[ "${is_keyless}" == true ]]; then
+    setup_keyless
 else
-    cosign_keyed
+    setup_keyed
 fi
+
+cosign_sign

@@ -43,7 +43,7 @@ use_image_digest() {
         local digest
         digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${image}")
 
-        status=$?
+        local status=$?
         if [[ $status -ne 0 ]]; then
             display_error "docker inspect" "Failed to get the local image digest, will continue using supplied image reference ${image}"
         else
@@ -76,7 +76,7 @@ cosign_init() {
     echo "--- :key: Init cosign"
 
     # flags for the cosign initialize command
-    init_flags=()
+    local init_flags=()
 
     if [[ "${is_keyless}" == true ]]; then
         local tuf_mirror_url=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_TUF_MIRROR_URL}
@@ -99,7 +99,7 @@ cosign_init() {
 
         cosign initialize "${init_flags[@]}"
 
-        status=$?
+        local status=$?
         if [[ $status -ne 0 ]]; then
             fail_with_message "cosign" "Failed to initialise"
         fi
@@ -163,7 +163,7 @@ cosign_sign() {
         "${sign_flags[@]}" \
         "${image}"
 
-    status=$?
+    local status=$?
     if [[ $status -ne 0 ]]; then
         fail_with_message "cosign" "Failed to sign image"
     fi

@@ -63,8 +63,18 @@ if [[ -z "${image}" ]]; then
 fi
 use_image_digest
 
+# generate a random number to enable safe concurrent plugin runs
+random="${RANDOM}"
+
+# set the TUF root directory to a custom location
+# ref: https://github.com/sigstore/sigstore/blob/b777e4be352ebf9394d534271f3dd888908e839a/pkg/tuf/client.go#L53-L54
+export TUF_ROOT="${HOME}/.sigstore-${random}/root"
+
+# set the output signature to a custom file name
+sigfile="sigstore-${random}.sig"
+
 # flags for the cosign sign command
-sign_flags=("-y" "--output-signature" "out.sig")
+sign_flags=("-y" "--output-signature" "${sigfile}")
 
 is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-true}
 
@@ -95,7 +105,7 @@ cosign_init() {
     fi
 
     if [ ${#init_flags[@]} -gt 0 ]; then
-        rm -rf ~/.sigstore
+        rm -rf "${TUF_ROOT}"
 
         cosign initialize "${init_flags[@]}"
 
@@ -157,7 +167,7 @@ setup_keyed() {
 cosign_sign() {
     echo "--- :key: Signing image with cosign"
 
-    rm -f out.sig
+    rm -f "${sigfile}"
 
     cosign sign \
         "${sign_flags[@]}" \
@@ -169,7 +179,7 @@ cosign_sign() {
     fi
 
     local signature
-    signature=$(cat out.sig)
+    signature=$(cat "${sigfile}")
 
     display_success "cosign" "Successfully signed image"
     cat <<EOF | buildkite-agent annotate --style success --context "cosign-signature"
@@ -184,7 +194,7 @@ $signature
 \`\`\`
 EOF
 
-    rm -f out.sig
+    rm -f "${sigfile}"
 }
 
 # Main

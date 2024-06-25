@@ -43,7 +43,7 @@ if [[ -z "${image}" ]]; then
     fail_with_message "cosign" "No image specified"
 fi
 
-is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-true}
+is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-false}
 
 # Hook functions
 ################

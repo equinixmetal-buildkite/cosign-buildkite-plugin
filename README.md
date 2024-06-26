@@ -36,20 +36,24 @@ repository as the container image.
 
 #### Using the Public-Good Sigstore Instance
 
+>WARNING: risk of data leakage - sensitive information may be unintentionally exposed to the public, do not use for non-public repos!
+
 ```yml
 steps:
   - plugins:
       - equinixmetal-buildkite/cosign#v0.1.0:
           image: "ghcr.io/my-project/my-image@sha256:1e1e4f97dd84970160975922715909577d6c12eaaf6047021875674fa7166c27"
+          keyless: true
 ```
 
-#### Using a custom Sigstore Instance
+#### Using a custom/private Sigstore Instance
 
 ```yml
 steps:
   - plugins:
       - equinixmetal-buildkite/cosign#v0.1.0:
           image: "ghcr.io/my-project/my-image@sha256:1e1e4f97dd84970160975922715909577d6c12eaaf6047021875674fa7166c27"
+          keyless: true
           keyless-config:
             tuf-mirror-url: "https://tuf.my-sigstore.dev"
             tuf-root-url: "https://tuf.my-sigstore.dev/root.json"
@@ -57,30 +61,30 @@ steps:
             fulcio-url: "https://fulcio.my-sigstore.dev"
 ```
 
-### Keyed signing
+### Keyed signing (default)
 
 Note: Currently, only the file-based keyed signing is supported.
 
 #### Using the Public-Good Sigstore Instance
 
+>WARNING: risk of data leakage - sensitive information may be unintentionally exposed to the public, do not use for non-public repos!
+
 ```yml
 steps:
   - plugins:
       - equinixmetal-buildkite/cosign#v0.1.0:
           image: "ghcr.io/my-project/my-image@sha256:1e1e4f97dd84970160975922715909577d6c12eaaf6047021875674fa7166c27"
-          keyless: false
           keyed-config:
             key: "/path-to/cosign.key"
 ```
 
-#### Using a custom Sigstore Instance
+#### Using a custom/private Sigstore Instance
 
 ```yml
 steps:
   - plugins:
       - equinixmetal-buildkite/cosign#v0.1.0:
           image: "ghcr.io/my-project/my-image@sha256:1e1e4f97dd84970160975922715909577d6c12eaaf6047021875674fa7166c27"
-          keyless: false
           keyed-config:
             tuf-mirror-url: "https://tuf.my-sigstore.dev"
             tuf-root-url: "https://tuf.my-sigstore.dev/root.json"
@@ -100,7 +104,7 @@ See `Important notes` above for details.
 ### `keyless` (Optional, boolean)
 
 If set to `true`, the plugin will use keyless signatures. If set to `false`, the
-plugin will use a keypair. If not specified, the plugin will default to `true`.
+plugin will use a keypair. If not specified, the plugin will default to `false`.
 
 ### `keyless-config` (Optional, object)
 

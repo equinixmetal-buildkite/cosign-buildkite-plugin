@@ -14,7 +14,7 @@ configuration:
     keyless:
       type: boolean
       description: "Use keyless signing"
-      default: false
+      default: true
     keyless-config:
       type: object
       properties:

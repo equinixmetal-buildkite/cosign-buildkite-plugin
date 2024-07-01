@@ -76,7 +76,7 @@ sigfile="sigstore-${random}.sig"
 # flags for the cosign sign command
 sign_flags=("-y" "--output-signature" "${sigfile}")
 
-is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-false}
+is_keyless=${BUILDKITE_PLUGIN_COSIGN_KEYLESS:-true}
 
 # Hook functions
 ################

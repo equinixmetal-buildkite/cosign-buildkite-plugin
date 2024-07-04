@@ -104,7 +104,8 @@ See `Important notes` above for details.
 ### `keyless` (Optional, boolean)
 
 If set to `true`, the plugin will use keyless signatures. If set to `false`, the
-plugin will use a keypair. If not specified, the plugin will default to `true`.
+plugin will use a keypair. If not specified, the plugin will default to `false`
+to avoid accidentally exposing information to the public Sigstore infrastructure.
 
 ### `keyless-config` (Optional, object)
 

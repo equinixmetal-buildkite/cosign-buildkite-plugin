@@ -28,7 +28,7 @@
 # - which
 # - mkdir
 
-readonly COSIGN_DEFAULT_VERSION="2.0.1"
+readonly COSIGN_DEFAULT_VERSION="2.2.4"
 export COSIGN_VERSION="${BUILDKITE_PLUGIN_COSIGN_VERSION:-$COSIGN_DEFAULT_VERSION}"
 REMOVE_FILE_ON_ERR=""
 
@@ -96,7 +96,7 @@ os_cpu_string() {
 # of cosign and writes it to stdout.
 #
 # For example:
-# https://github.com/aquasecurity/cosign/releases/download/v1.13.0/cosign_1.13.0_linux-64bit
+# https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64
 cosign_url() {
   local VERSION="${1}"
   [[ -z "${VERSION}" ]] \
@@ -117,7 +117,7 @@ cosign_url() {
 # of cosign and writes it to stdout.
 #
 # For example:
-# https://github.com/sigstore/cosign/releases/download/v1.13.0/cosign_checksums.txt
+# https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign_checksums.txt
 cosign_hashes_url() {
   local VERSION="${1}"
   [[ -z "${VERSION}" ]] \
@@ -233,7 +233,7 @@ download_cosign() {
   local EXE="${FINAL_BIN}"
   [[ -f "${EXE}" ]] \
     || die 47 "download_cosign: '${BIN_NAME}' does not contain a file named 'cosign'"
-  
+
   chmod +x "${EXE}" || die 48 "download_cosign: failed to make '${EXE}' executable"
 
   echo "${EXE}"

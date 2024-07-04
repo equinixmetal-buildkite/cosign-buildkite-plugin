@@ -1,6 +1,6 @@
 name: Cosign
-description: Cosign plugin for BuildKite
-author: Hari
+description: Cosign plugin for Buildkite
+author: Equinix Metal
 requirements:
   - bash
   - uname
@@ -8,34 +8,47 @@ requirements:
   - mktemp
 configuration:
   properties:
-    image: 
+    image:
       type: string
       description: "The container image tag to sign"
-    keyless: 
+    keyless:
       type: boolean
       description: "Use keyless signing"
       default: true
     keyless-config:
       type: object
       properties:
-        fulcio-url:
+        tuf-mirror-url:
           type: string
-          description: "Fulcio URL"
-          default: "https://fulcio.sigstore.dev"
+          description: "TUF URL"
+        tuf-root-url:
+          type: string
+          description: "TUF root"
         rekor-url:
           type: string
           description: "Rekor URL"
-          default: "https://rekor.sigstore.dev"
+        fulcio-url:
+          type: string
+          description: "Fulcio URL"
         oidc-issuer:
           type: string
           description: "OIDC issuer"
         oidc-provider:
           type: string
           description: "OIDC provider"
-          default: "github"
+          default: "buildkite-agent"
     keyed-config:
       type: object
       properties:
+        tuf-mirror-url:
+          type: string
+          description: "TUF URL"
+        tuf-root-url:
+          type: string
+          description: "TUF root"
+        rekor-url:
+          type: string
+          description: "Rekor URL"
         key:
           type: string
           description: "Signing key path"

@@ -37,6 +37,9 @@ configuration:
           type: string
           description: "OIDC provider"
           default: "buildkite-agent"
+        identity-token:
+          type: string
+          description: "Identity token"
     keyed-config:
       type: object
       properties:

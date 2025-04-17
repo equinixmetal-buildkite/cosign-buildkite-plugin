@@ -137,9 +137,14 @@ setup_keyless() {
         sign_flags+=("--oidc-issuer" "${oidc_issuer}")
     fi
 
-    local oidc_provider=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_OIDC_PROVIDER:-"buildkite-agent"}
+    local oidc_provider=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_OIDC_PROVIDER}
     if [[ -n "${oidc_provider}" ]]; then
         sign_flags+=("--oidc-provider" "${oidc_provider}")
+    fi
+
+    local identity_token=${BUILDKITE_PLUGIN_COSIGN_KEYLESS_CONFIG_IDENTITY_TOKEN}
+    if [[ -n "${identity_token}" ]]; then
+        sign_flags+=("--identity-token" "${identity_token}")
     fi
 }
 

@@ -1,0 +1,5 @@
+{
+  "yaml.schemas": {
+    "https://json.schemastore.org/pocketmine-plugin.json": "file:///home/bailinhe/dev/cosign-buildkite-plugin/plugin.yml"
+  }
+}

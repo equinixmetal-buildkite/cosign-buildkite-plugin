@@ -37,6 +37,12 @@ configuration:
           type: string
           description: "OIDC provider"
           default: "buildkite-agent"
+        identity-token-env:
+          type: string
+          description: "Environment variable from which identity token to be read"
+        identity-token:
+          type: string
+          description: "Identity token, this overrides identity-token-env"
     keyed-config:
       type: object
       properties:

@@ -221,3 +221,5 @@ else
 fi
 
 cosign_sign
+
+buildkite-agent meta-data set "image-sha" $image

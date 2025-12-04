@@ -1,6 +1,6 @@
 BUILDKITE_TESTER_IMAGE=buildkite/plugin-tester:v4.1.1
 
-BUILDKITE_LINTER_IMAGE=buildkite/plugin-linter:v2.1.0
+BUILDKITE_LINTER_IMAGE=buildkite/plugin-linter:v3.0.0
 
 PLUGIN_REF=equinixmetal-buildkite/cosign
 
